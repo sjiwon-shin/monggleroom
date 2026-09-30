@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>몽글룸</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="wide">
+
+<div class="top">
+  <a class="brand" href="index.html"><i></i><span class="site">몽글룸</span></a>
+  <div class="topbtns">
+    <button type="button" class="btn small line" id="walk">몽글 산책</button>
+    <a class="btn small" id="myHome" href="index.html">내 홈</a>
+  </div>
+</div>
+
+<div id="missing" class="card hidden">
+  <h2>홈을 찾을 수 없어요</h2>
+  <p style="font-size:13px;color:var(--sub)">주소가 잘못됐거나 지워진 홈이에요.</p>
+  <p style="margin-top:12px"><a class="btn" href="index.html">내 홈 만들기</a></p>
+</div>
+
+<main id="page" class="hidden">
+  <section class="book">
+    <div class="book-top">
+      <h1 id="title"></h1>
+      <div class="counter"><span>TODAY<b id="cToday">0</b></span><span>TOTAL<b id="cTotal">0</b></span></div>
+    </div>
+
+
+    <div class="book-body">
+      <!-- 프로필 -->
+      <aside class="profile">
+        <div class="pf-pic"><canvas id="pfPic"></canvas></div>
+        <div class="pf-name" id="pfName"></div>
+        <div class="mood hidden" id="pfMood"></div>
+        <div class="pf-status" id="pfStatus"></div>
+        <div class="pf-btns" id="pfBtns"></div>
+        <div class="msg" id="pfMsg" style="text-align:left;margin:0"></div>
+      </aside>
+
+      <nav class="itabs" role="tablist" aria-label="홈 메뉴">
+        <button type="button" role="tab" data-tab="home"    style="--c:#CFEDE4">홈</button>
+        <button type="button" role="tab" data-tab="diary"   style="--c:#FDE7B0">다이어리</button>
+        <button type="button" role="tab" data-tab="photos"  style="--c:#F9D3DA">사진첩</button>
+        <button type="button" role="tab" data-tab="notes"   style="--c:#D6E4FA">방명록</button>
+        <button type="button" role="tab" data-tab="friends" style="--c:#E4D8F6">단짝</button>
+      </nav>
+
+      <!-- 홈 -->
+      <div class="pane" data-pane="home">
+        <div class="roombox"><canvas id="room"></canvas></div>
+        <div class="sec"><h3>최근 다이어리 <small id="hDiaryMore"></small></h3><ul class="feed" id="hDiary"></ul></div>
+        <div class="sec"><h3>최근 사진</h3><div class="photos" id="hPhotos"></div></div>
+        <div class="sec"><h3>최근 방명록</h3><ul class="feed" id="hNotes"></ul></div>
+      </div>
+
+      <!-- 다이어리 -->
+      <div class="pane hidden" data-pane="diary">
+        <div class="card hidden" id="dWrite" style="box-shadow:none">
+          <h2>오늘의 다이어리</h2>
+          <div class="moods" id="dMoods"></div>
+          <textarea id="dBody" maxlength="1000" placeholder="오늘 있었던 일을 적어보세요"></textarea>
+          <div class="count"><span id="dCount">0</span> / 1000</div>
+          <button type="button" class="btn" id="dSave">올리기</button>
+          <div class="msg" id="dMsg"></div>
+        </div>
+        <div id="dList"></div>
+        <div class="empty hidden" id="dEmpty">아직 다이어리가 없어요.</div>
+      </div>
+
+      <!-- 사진첩 -->
+      <div class="pane hidden" data-pane="photos">
+        <div class="upload hidden" id="pUpload">
+          <input type="text" id="pCaption" maxlength="100" placeholder="사진 설명 (선택)">
+          <span class="btn small filebtn">사진 올리기<input type="file" id="pFile" accept="image/*"></span>
+        </div>
+        <div class="msg" id="pMsg" style="margin:0 0 8px"></div>
+        <div class="photos" id="pGrid"></div>
+        <div class="empty hidden" id="pEmpty">아직 사진이 없어요.</div>
+      </div>
+
+      <!-- 방명록 -->
+      <div class="pane hidden" data-pane="notes">
+        <div class="card" style="box-shadow:none">
+          <h2>방명록 남기기 <small>내 캐릭터가 이 방에 놀러 와요</small></h2>
+          <label class="f" for="vName">이름</label>
+          <input type="text" id="vName" maxlength="20" placeholder="이름을 적어주세요">
+          <label class="f" for="vMsg">한마디</label>
+          <textarea id="vMsg" maxlength="200" placeholder="놀러 왔다 갑니다!"></textarea>
+          <div class="count"><span id="vCount">0</span> / 200</div>
+          <label class="chk"><input type="checkbox" id="vSecret"> 비밀글 (홈 주인만 볼 수 있어요)</label>
+          <details style="margin:4px 0 10px">
+            <summary style="cursor:pointer;font-size:13px;color:var(--sub)">내 캐릭터 바꾸기</summary>
+            <div id="vMaker" style="margin-top:10px"></div>
+          </details>
+          <button type="button" class="btn wide" id="vSend">남기기</button>
+          <div class="msg" id="vInfo"></div>
+        </div>
+        <h3>방명록 <small id="noteCount"></small></h3>
+        <ul class="notes" id="notes"></ul>
+        <div class="empty hidden" id="noNotes">아직 글이 없어요. 첫 손님이 되어 주세요.</div>
+      </div>
+
+      <!-- 단짝 -->
+      <div class="pane hidden" data-pane="friends">
+        <div class="sec hidden" id="fReqBox"><h3>단짝 신청 <small>수락하면 서로의 단짝이 돼요</small></h3><div class="friends" id="fReqs"></div></div>
+        <div class="sec"><h3>단짝 <small id="fCount"></small></h3><div class="friends" id="fList"></div>
+          <div class="empty hidden" id="fEmpty">아직 단짝이 없어요.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 주인용: 꾸미기 -->
+  <div class="card hidden" id="edit">
+    <h2>내 홈 꾸미기</h2>
+    <label class="f" for="eName">이름</label>
+    <input type="text" id="eName" maxlength="20">
+    <label class="f" for="eStatus">한 줄 소개</label>
+    <input type="text" id="eStatus" maxlength="60">
+    <label class="f">오늘의 기분</label>
+    <div class="moods" id="eMoods"></div>
+    <label class="f">방 분위기</label>
+    <div class="themes" id="themes"></div>
+    <label class="f">내 캐릭터</label>
+    <div id="eMaker"></div>
+    <div class="row" style="margin-top:12px">
+      <button type="button" class="btn" id="eSave">저장</button>
+      <button type="button" class="btn line" id="eCancel">닫기</button>
+    </div>
+    <div class="msg" id="eMsg"></div>
+    <details style="margin-top:14px">
+      <summary style="cursor:pointer;font-size:13px">다른 기기에서도 관리하기</summary>
+      <p style="font-size:12px;color:var(--sub);margin-top:6px">아래 관리 코드를 다른 기기의 첫 화면 "관리 코드로 불러오기"에 붙여넣으세요. 이 코드가 있으면 누구나 홈을 고칠 수 있으니 남에게 보여주지 마세요.</p>
+      <div class="code" id="eCode"></div>
+      <button type="button" class="btn small line" id="eCopy">코드 복사</button>
+    </details>
+  </div>
+</main>
+
+<div class="lightbox hidden" id="lightbox" role="dialog" aria-modal="true">
+  <figure><img id="lbImg" alt=""><figcaption><span id="lbCap"></span><span id="lbTools"></span></figcaption></figure>
+</div>
+
+<div class="foot"><span class="site">몽글룸</span></div>
+
+<script src="config.js"></script>
+<script src="parts.js"></script>
+<script src="avatar.js"></script>
+<script src="store.js"></script>
+<script src="maker.js"></script>
+<script src="room.js"></script>
+<script src="home.js"></script>
+</body>
+</html>
