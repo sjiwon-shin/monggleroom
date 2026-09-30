@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>몽글룸 · 내 방 만들기</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="top">
+  <a class="brand" href="index.html"><i></i><span class="site">몽글룸</span></a>
+</div>
+
+<div id="demo" class="card note-demo hidden">
+  <b>지금은 체험 모드예요.</b> 만든 홈과 방명록이 이 기기에만 저장됩니다.
+  다른 사람이 들어오게 하려면 README 의 설치 순서대로 Supabase 를 연결하세요.
+</div>
+
+<div class="card">
+  <h2>내 홈 만들기 <small>1분이면 돼요</small></h2>
+  <label class="f" for="name">이름 (닉네임)</label>
+  <input type="text" id="name" maxlength="20" placeholder="예: 홍상" autocomplete="nickname">
+  <label class="f" for="status">한 줄 소개</label>
+  <input type="text" id="status" maxlength="60" placeholder="예: 오늘도 도트 찍는 중">
+</div>
+
+<div class="card">
+  <h2>내 캐릭터 <small>방 안을 걸어다녀요</small></h2>
+  <div id="maker"></div>
+</div>
+
+<div class="card">
+  <h2>방 분위기</h2>
+  <div class="themes" id="themes"></div>
+</div>
+
+<button type="button" class="btn wide" id="go">내 홈 열기</button>
+<div class="msg" id="msg"></div>
+
+<div class="card hidden" id="mine" style="margin-top:22px">
+  <h2>이 기기에서 만든 홈</h2>
+  <ul class="mylist" id="mylist"></ul>
+</div>
+
+<div class="foot"><span class="site">몽글룸</span> · 내 캐릭터와 내 방, 그리고 방명록</div>
+
+<script src="config.js"></script>
+<script src="parts.js"></script>
+<script src="avatar.js"></script>
+<script src="store.js"></script>
+<script src="maker.js"></script>
+<script src="room.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const SITE = (window.DOTHOME_CONFIG || {}).SITE_NAME || "몽글룸";
+document.querySelectorAll(".site").forEach(n => n.textContent = SITE);
+document.title = SITE + " · 내 홈 만들기";
+if (!Store.online) $("demo").classList.remove("hidden");
+
+let theme = "mint";
+const maker = Maker.mount($("maker"), {});
+
+/* 방 분위기 고르기 */
+Object.entries(Room.THEMES).forEach(([id, t]) => {
+  const b = document.createElement("button"); b.type = "button";
+  const sw = document.createElement("i");
+  sw.style.background = `linear-gradient(${t.wall} 0 58%, ${t.floor} 58% 100%)`;
+  b.append(sw, document.createTextNode(t.name));
+  b.onclick = () => { theme = id; paintThemes(); };
+  b.dataset.id = id; $("themes").appendChild(b);
+});
+function paintThemes() { [...$("themes").children].forEach(b => b.setAttribute("aria-pressed", String(b.dataset.id === theme))); }
+paintThemes();
+
+/* 이 기기에서 만든 홈 목록 */
+const mine = Store.mine();
+if (mine.length) {
+  $("mine").classList.remove("hidden");
+  mine.forEach(h => {
+    const li = document.createElement("li"), a = document.createElement("a");
+    a.href = "home.html?u=" + encodeURIComponent(h.id); a.textContent = (h.name || "이름 없음") + " 의 홈 →";
+    li.appendChild(a); $("mylist").appendChild(li);
+  });
+}
+
+const say = (t, cls) => { $("msg").textContent = t; $("msg").className = "msg " + (cls || ""); };
+$("go").onclick = async () => {
+  const name = $("name").value.trim();
+  if (!name) return say("이름을 적어주세요.", "err");
+  if (!maker.get()) return say("캐릭터를 불러오는 중이에요. 잠시만요.", "err");
+  $("go").disabled = true; say("만드는 중…");
+  try {
+    const made = await Store.createHome({ name, status: $("status").value, avatar: maker.get(), theme });
+    location.href = "home.html?u=" + encodeURIComponent(made.id);
+  } catch (e) { say(Store.explain(e), "err"); $("go").disabled = false; }
+};
+</script>
+</body>
+</html>

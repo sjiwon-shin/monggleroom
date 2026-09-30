@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>몽글룸</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="top">
+  <a class="brand" href="index.html"><i></i><span class="site">몽글룸</span></a>
+  <a class="ghost" href="index.html">나도 홈 만들기</a>
+</div>
+
+<div id="missing" class="card hidden">
+  <h2>홈을 찾을 수 없어요</h2>
+  <p style="font-size:13px;color:var(--sub)">주소가 잘못됐거나, 체험 모드로 다른 기기에서 만든 홈일 수 있어요.</p>
+  <p style="margin-top:12px"><a class="btn" href="index.html">내 홈 만들기</a></p>
+</div>
+
+<main id="page" class="hidden">
+  <div class="owner">
+    <div>
+      <h1 id="title"></h1>
+      <p id="status"></p>
+    </div>
+    <div class="row" id="ownerTools" style="flex:none"></div>
+  </div>
+
+  <div class="roombox"><canvas id="room"></canvas></div>
+
+  <!-- 주인용: 꾸미기 -->
+  <div class="card hidden" id="edit">
+    <h2>내 홈 꾸미기</h2>
+    <label class="f" for="eName">이름</label>
+    <input type="text" id="eName" maxlength="20">
+    <label class="f" for="eStatus">한 줄 소개</label>
+    <input type="text" id="eStatus" maxlength="60">
+    <label class="f">방 분위기</label>
+    <div class="themes" id="themes"></div>
+    <label class="f">내 캐릭터</label>
+    <div id="eMaker"></div>
+    <div class="row" style="margin-top:12px">
+      <button type="button" class="btn" id="eSave">저장</button>
+      <button type="button" class="btn line" id="eCancel">닫기</button>
+    </div>
+    <div class="msg" id="eMsg"></div>
+  </div>
+
+  <!-- 손님용: 방명록 남기기 -->
+  <div class="card">
+    <h2>방명록 남기기 <small>내 캐릭터가 이 방에 놀러 와요</small></h2>
+    <label class="f" for="vName">이름</label>
+    <input type="text" id="vName" maxlength="20" placeholder="이름을 적어주세요">
+    <label class="f" for="vMsg">한마디</label>
+    <textarea id="vMsg" maxlength="200" placeholder="놀러 왔다 갑니다!"></textarea>
+    <div class="count"><span id="vCount">0</span> / 200</div>
+    <details style="margin:6px 0 10px">
+      <summary style="cursor:pointer;font-size:13px;color:var(--sub)">내 캐릭터 바꾸기</summary>
+      <div id="vMaker" style="margin-top:10px"></div>
+    </details>
+    <button type="button" class="btn wide" id="vSend">남기기</button>
+    <div class="msg" id="vInfo"></div>
+  </div>
+
+  <div class="card">
+    <h2>방명록 <small id="noteCount"></small></h2>
+    <ul class="notes" id="notes"></ul>
+    <div class="empty hidden" id="noNotes">아직 글이 없어요. 첫 손님이 되어 주세요.</div>
+  </div>
+</main>
+
+<div class="foot"><span class="site">몽글룸</span></div>
+
+<script src="config.js"></script>
+<script src="parts.js"></script>
+<script src="avatar.js"></script>
+<script src="store.js"></script>
+<script src="maker.js"></script>
+<script src="room.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const SITE = (window.DOTHOME_CONFIG || {}).SITE_NAME || "몽글룸";
+document.querySelectorAll(".site").forEach(n => n.textContent = SITE);
+
+const homeId = new URLSearchParams(location.search).get("u") || "";
+const isOwner = () => Boolean(Store.keyOf(homeId));
+let home = null, notes = [], room = null, editTheme = "mint", editMaker = null;
+
+/* 손님 정보는 이 기기에 기억해 둡니다 */
+const ME_KEY = "dothome.me";
+const me = (() => { try { return JSON.parse(localStorage.getItem(ME_KEY)) || {}; } catch (_) { return {}; } })();
+const saveMe = () => { try { localStorage.setItem(ME_KEY, JSON.stringify(me)); } catch (_) {} };
+
+const when = iso => { const d = new Date(iso), p = n => String(n).padStart(2, "0");
+  return `${d.getMonth() + 1}.${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`; };
+
+/* 캐릭터 얼굴만 작게 */
+function face(code) {
+  const c = document.createElement("canvas"); c.width = c.height = 80;
+  const s = AV.compose(code); if (!s) return c;
+  const sh = Math.round(s.height * 0.46), k = Math.min(80 / s.width, 80 / sh);
+  const g = c.getContext("2d"); g.imageSmoothingEnabled = k < 1;
+  g.drawImage(s, 0, 0, s.width, sh, (80 - s.width * k) / 2, (80 - sh * k) / 2, s.width * k, sh * k);
+  return c;
+}
+
+function renderHead() {
+  $("title").textContent = home.name + " 의 홈";
+  $("status").textContent = home.status || "";
+  document.title = home.name + " 의 홈 · " + SITE;
+  const tools = $("ownerTools"); tools.innerHTML = "";
+  if (isOwner()) {
+    const edit = document.createElement("button"); edit.type = "button"; edit.className = "btn small line"; edit.textContent = "꾸미기";
+    edit.onclick = openEdit;
+    const share = document.createElement("button"); share.type = "button"; share.className = "btn small"; share.textContent = "주소 복사";
+    share.onclick = () => {
+      const url = location.href.split("#")[0];
+      (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(
+        () => { share.textContent = "복사됨"; setTimeout(() => share.textContent = "주소 복사", 1500); },
+        () => prompt("이 주소를 친구에게 보내세요", url));
+    };
+    tools.append(edit, share);
+  }
+}
+
+function renderRoom() {
+  if (!room) room = Room.mount($("room"), { theme: home.theme });
+  room.setTheme(home.theme);
+  const seen = new Set(), guests = [];
+  for (const n of notes) {                     // 최근 손님 10명 (같은 이름은 한 번만)
+    const k = n.name + "|" + n.avatar;
+    if (seen.has(k) || !AV.isCode(n.avatar)) continue;
+    seen.add(k); guests.push({ key: "n" + n.id, name: n.name, avatar: n.avatar, message: n.message });
+    if (guests.length >= 10) break;
+  }
+  room.setActors([{ key: "owner", name: home.name, avatar: home.avatar, message: home.status, owner: true }].concat(guests));
+}
+
+function renderNotes() {
+  const ul = $("notes"); ul.innerHTML = "";
+  $("noteCount").textContent = notes.length ? notes.length + "개" : "";
+  $("noNotes").classList.toggle("hidden", notes.length > 0);
+  notes.forEach(n => {
+    const li = document.createElement("li"), body = document.createElement("div");
+    body.style.minWidth = "0"; body.style.flex = "1";
+    const who = document.createElement("div"); who.className = "who"; who.textContent = n.name;
+    const t = document.createElement("time"); t.textContent = when(n.created_at); who.appendChild(t);
+    const what = document.createElement("div"); what.className = "what"; what.textContent = n.message;
+    body.append(who, what);
+    li.append(face(n.avatar), body);
+    if (isOwner()) {
+      const del = document.createElement("button"); del.type = "button"; del.className = "del"; del.textContent = "지우기";
+      del.onclick = async () => {
+        if (!confirm("이 글을 지울까요?")) return;
+        try { await Store.deleteNote(homeId, n.id); await refreshNotes(); } catch (e) { alert(Store.explain(e)); }
+      };
+      li.appendChild(del);
+    }
+    ul.appendChild(li);
+  });
+}
+
+async function refreshNotes() { notes = await Store.listNotes(homeId); renderNotes(); renderRoom(); }
+
+/* ── 주인: 꾸미기 ── */
+function openEdit() {
+  $("edit").classList.remove("hidden");
+  $("eName").value = home.name; $("eStatus").value = home.status || ""; editTheme = home.theme || "mint";
+  const box = $("themes"); box.innerHTML = "";
+  Object.entries(Room.THEMES).forEach(([id, t]) => {
+    const b = document.createElement("button"); b.type = "button"; b.dataset.id = id;
+    const sw = document.createElement("i"); sw.style.background = `linear-gradient(${t.wall} 0 58%, ${t.floor} 58% 100%)`;
+    b.append(sw, document.createTextNode(t.name));
+    b.onclick = () => { editTheme = id; room.setTheme(id); paint(); };
+    box.appendChild(b);
+  });
+  const paint = () => [...box.children].forEach(b => b.setAttribute("aria-pressed", String(b.dataset.id === editTheme)));
+  paint();
+  editMaker = Maker.mount($("eMaker"), { value: home.avatar });
+  $("edit").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+$("eCancel").onclick = () => { $("edit").classList.add("hidden"); room.setTheme(home.theme); };
+$("eSave").onclick = async () => {
+  const name = $("eName").value.trim();
+  const info = (t, c) => { $("eMsg").textContent = t; $("eMsg").className = "msg " + (c || ""); };
+  if (!name) return info("이름을 적어주세요.", "err");
+  $("eSave").disabled = true; info("저장하는 중…");
+  try {
+    const patch = { name, status: $("eStatus").value.trim(), theme: editTheme, avatar: editMaker.get() || home.avatar };
+    await Store.updateHome(homeId, patch);
+    Object.assign(home, patch); renderHead(); renderRoom();
+    info("저장했어요.", "ok"); $("edit").classList.add("hidden");
+  } catch (e) { info(Store.explain(e), "err"); }
+  $("eSave").disabled = false;
+};
+
+/* ── 손님: 방명록 남기기 ── */
+const vMaker = Maker.mount($("vMaker"), { value: me.avatar, onChange: code => { me.avatar = code; saveMe(); } });
+$("vName").value = me.name || "";
+$("vMsg").addEventListener("input", e => $("vCount").textContent = e.target.value.length);
+$("vSend").onclick = async () => {
+  const name = $("vName").value.trim(), message = $("vMsg").value.trim();
+  const info = (t, c) => { $("vInfo").textContent = t; $("vInfo").className = "msg " + (c || ""); };
+  if (!name) return info("이름을 적어주세요.", "err");
+  if (!message) return info("한마디를 적어주세요.", "err");
+  $("vSend").disabled = true; info("남기는 중…");
+  try {
+    await Store.addNote({ home_id: homeId, name, message, avatar: vMaker.get() });
+    me.name = name; me.avatar = vMaker.get(); saveMe();
+    $("vMsg").value = ""; $("vCount").textContent = "0";
+    await refreshNotes();
+    info("남겼어요! 방 안에 내 캐릭터가 들어왔어요.", "ok");
+    document.querySelector(".roombox").scrollIntoView({ behavior: "smooth", block: "center" });
+  } catch (e) { info(Store.explain(e), "err"); }
+  $("vSend").disabled = false;
+};
+
+/* ── 시작 ── */
+(async () => {
+  try {
+    await AV.ready();
+    home = homeId ? await Store.getHome(homeId) : null;
+    if (!home) { $("missing").classList.remove("hidden"); return; }
+    $("page").classList.remove("hidden");
+    renderHead();
+    await refreshNotes();
+    if (Store.online) setInterval(() => refreshNotes().catch(() => {}), 20000);   // 새 손님 확인
+  } catch (e) {
+    $("missing").classList.remove("hidden");
+    $("missing").querySelector("p").textContent = Store.explain(e);
+  }
+})();
+</script>
+</body>
+</html>
